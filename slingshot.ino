@@ -5,6 +5,8 @@
 #include <SPI.h>
 #endif
 
+#include <avr/wdt.h>
+
 USB Usb;
 ADK adk(&Usb, "TKJElectronics", // Manufacturer Name
               "ArduinoBlinkLED", // Model Name
@@ -68,6 +70,7 @@ void setup() {
 
   scale.set_scale(2280.f);                 
   scale.tare(); 
+  watchdogSetup();
 
 }
 
@@ -85,6 +88,9 @@ void loop() {
       adk.SndData(sizeof(msg), (uint8_t*)&msg);
 
     }
+
+
+    
 
     uint8_t msg_r[7];
     uint16_t len = sizeof(msg_r);
@@ -148,12 +154,13 @@ void loop() {
         digitalWrite(LASER, LOW);
       }
 
-      if (millis() - time_laser >= 15000)
+      if (millis() - time_laser >= 10000)
         digitalWrite(LASER, LOW);
 
       pack(msg, false, data_ , 2);//
       rcode = adk.SndData(sizeof(msg), (uint8_t*)&msg);
       delay(250);
+      wdt_reset();
 
     }
 
@@ -161,6 +168,7 @@ void loop() {
     if (connected) {
       connected = false;
       Serial.print(F("\r\nDisconnected from accessory"));
+      
     }
   }
 }
@@ -192,3 +200,24 @@ byte crc(byte *arr, byte num_start, byte num_end) { //num_start, num_end пор�
   return crc;
 }
 //TODO: crc function for data array
+
+
+void watchdogSetup(void)
+{
+  cli();       // disable all interrupts
+  wdt_reset(); // reset the WDT timer
+  /*
+   WDTCSR configuration:
+   WDIE = 1: Interrupt Enable
+   WDE = 1 :Reset Enable
+   WDP3 = 0 :For 2000ms Time-out
+   WDP2 = 1 :For 2000ms Time-out
+   WDP1 = 1 :For 2000ms Time-out
+   WDP0 = 1 :For 2000ms Time-out
+  */
+  // Enter Watchdog Configuration mode:
+  WDTCSR |= (1<<WDCE) | (1<<WDE);
+  // Set Watchdog settings:
+  WDTCSR = (1<<WDIE) | (1<<WDE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);
+  sei();
+}
